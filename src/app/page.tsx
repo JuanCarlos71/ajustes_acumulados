@@ -27,32 +27,21 @@ export default function InventoryInsightsPage() {
             Analizador de <span className="text-accent">Insights</span> de Inventario
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed font-body">
-            Sube tus reportes de ajustes de bodega y factores de valoración para descubrir discrepancias, identificar patrones y obtener recomendaciones logísticas impulsadas por IA.
+            Sube tus reportes de ajustes de bodega y factores de valoración para descubrir discrepancias, identificar patrones y obtener recomendaciones logísticas.
           </p>
         </header>
 
         {!analysisResults ? (
           <div className="space-y-8">
             <InventoryUploader onDataReady={handleDataReady} />
-            <Alert variant="default" className="max-w-2xl mx-auto bg-primary/5 border-primary/20">
-              <Info className="h-4 w-4 text-primary" />
-              <AlertTitle className="font-headline font-semibold text-primary">Instrucciones de Uso</AlertTitle>
-              <AlertDescription className="text-sm text-muted-foreground font-body">
-                <ul className="list-disc list-inside mt-2 space-y-2">
-                  <li><strong>Archivo 1 (MB51):</strong> Debe contener las columnas de 'Material', 'Clase de mov.', 'Centro', 'Ctd.en UM entrada', 'Impte.mon.local' y 'Fecha contabiliz.'.</li>
-                  <li><strong>Archivo 2 (Factores):</strong> Debe contener las columnas de 'Material' y 'Factor' (valor unitario de valoración).</li>
-                  <li>Los resultados se priorizan automáticamente para resaltar primero los mayores impactos financieros negativos y positivos.</li>
-                </ul>
-              </AlertDescription>
-            </Alert>
           </div>
         ) : (
           <div className="space-y-10">
-            <div className="flex justify-between items-center border-b pb-4">
+            <div className="flex justify-between items-center border-b pb-4 print:hidden">
               <h2 className="text-2xl font-headline font-bold text-primary">Resultados del Análisis</h2>
               <button 
                 onClick={() => setAnalysisResults(null)}
-                className="text-sm font-medium text-accent hover:underline flex items-center gap-1"
+                className="text-sm font-medium text-accent hover:underline flex items-center gap-1 font-body"
               >
                 ← Subir Nuevos Archivos
               </button>
@@ -61,11 +50,31 @@ export default function InventoryInsightsPage() {
           </div>
         )}
 
-        <footer className="text-center pt-20 border-t">
-          <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold opacity-50">
-            &copy; {new Date().getFullYear()} Analizador de Insights de Inventario • Gestión de Datos Logísticos de Precisión
-          </p>
-        </footer>
+        <section className="mt-20 print:hidden">
+          <Alert variant="default" className="max-w-3xl mx-auto bg-primary/5 border-primary/20">
+            <Info className="h-4 w-4 text-primary" />
+            <AlertTitle className="font-headline font-semibold text-primary uppercase tracking-wider text-xs">Instrucciones de Uso</AlertTitle>
+            <AlertDescription className="text-sm text-muted-foreground font-body">
+              <ul className="list-disc list-inside mt-2 space-y-3">
+                <li><strong>Archivo 1 (MB51):</strong> Debe contener las columnas: 'Material', 'Clase de mov.', 'Centro', 'Ctd.en UM entrada'.</li>
+                <li><strong>Archivo 2 (Factores):</strong> Debe contener las columnas: 'Material' y 'Factor' (valor unitario).</li>
+                <li><strong>Procesamiento:</strong> El sistema normaliza materiales (elimina ceros iniciales) y compensa entradas (+) y salidas (-) según clase de movimiento.</li>
+                <li><strong>Gráficos:</strong> Los desgloses muestran el impacto financiero real (Cantidad x Factor) por cada centro logístico.</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+        </section>
+
+        {!analysisResults && (
+          <footer className="text-center pt-20 border-t space-y-2">
+            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold opacity-50 font-body">
+              &copy; {new Date().getFullYear()} Analizador de Insights de Inventario • Gestión de Datos Logísticos de Precisión
+            </p>
+            <p className="text-sm font-bold text-primary font-headline">
+              Creado por: jugonza@ccu.cl
+            </p>
+          </footer>
+        )}
       </div>
     </main>
   );
