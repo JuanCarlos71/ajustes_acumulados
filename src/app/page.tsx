@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react';
@@ -14,6 +13,23 @@ export default function InventoryInsightsPage() {
   const handleDataReady = (movements: any[], valuations: any[]) => {
     const results = performAnalysis(movements, valuations);
     setAnalysisResults(results);
+  };
+
+  const ColorfulCredit = () => {
+    const text = "Creado por jugonza@ccu.cl";
+    const colors = [
+      'text-red-500', 'text-orange-500', 'text-yellow-500', 'text-green-500', 
+      'text-blue-500', 'text-indigo-500', 'text-purple-500', 'text-pink-500'
+    ];
+    return (
+      <>
+        {text.split('').map((char, i) => (
+          <span key={i} className={char === ' ' ? '' : colors[i % colors.length]}>
+            {char}
+          </span>
+        ))}
+      </>
+    );
   };
 
   return (
@@ -52,10 +68,12 @@ export default function InventoryInsightsPage() {
 
         <section className="mt-20 print:hidden">
           <Alert variant="default" className="max-w-3xl mx-auto bg-primary/5 border-primary/20">
-            <Info className="h-4 w-4 text-primary" />
-            <AlertTitle className="font-headline font-semibold text-primary uppercase tracking-wider text-xs">Instrucciones de Uso</AlertTitle>
-            <AlertDescription className="text-sm text-muted-foreground font-body">
-              <ul className="list-disc list-inside mt-2 space-y-3">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-primary" />
+              <AlertTitle className="font-headline font-semibold text-primary uppercase tracking-wider text-xs m-0">Instrucciones de Uso</AlertTitle>
+            </div>
+            <AlertDescription className="text-sm text-muted-foreground font-body mt-2">
+              <ul className="list-disc list-inside space-y-3">
                 <li><strong>Archivo 1 (MB51):</strong> Debe contener las columnas: 'Material', 'Clase de mov.', 'Centro', 'Ctd.en UM entrada'.</li>
                 <li><strong>Archivo 2 (Factores):</strong> Debe contener las columnas: 'Material' y 'Factor' (valor unitario).</li>
                 <li><strong>Procesamiento:</strong> El sistema normaliza materiales (elimina ceros iniciales) y compensa entradas (+) y salidas (-) según clase de movimiento.</li>
@@ -65,17 +83,16 @@ export default function InventoryInsightsPage() {
           </Alert>
         </section>
 
-        {!analysisResults && (
-          <footer className="text-center pt-20 border-t space-y-2">
-            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold opacity-50 font-body">
-              &copy; {new Date().getFullYear()} Analizador de Insights de Inventario • Gestión de Datos Logísticos de Precisión
-            </p>
-            <p className="text-sm font-bold text-primary font-headline">
-              Creado por: jugonza@ccu.cl
-            </p>
-          </footer>
-        )}
+        <footer className="text-center pt-20 border-t space-y-2">
+          <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold opacity-50 font-body">
+            &copy; {new Date().getFullYear()} Analizador de Insights de Inventario • Gestión de Datos de Precisión SAP/WMS
+          </p>
+          <p className="text-sm font-bold font-headline">
+            <ColorfulCredit />
+          </p>
+        </footer>
       </div>
     </main>
   );
 }
+// Build: v1.0.4 - SAP/WMS
