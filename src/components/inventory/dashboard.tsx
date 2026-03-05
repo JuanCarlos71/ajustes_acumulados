@@ -137,9 +137,11 @@ export function InventoryDashboard({ data }: DashboardProps) {
       netImpact: materialNetImpactMap[code] || 0
     }));
 
-    // Consolidación técnica (agrupar Material + Centro)
+    // TABLE FILTER: Only Diferencias de Inventario (Z59, Z60, Z65, Z66)
     const technicalMap: Record<string, AnalysisResult> = {};
     data.forEach(d => {
+      if (d.category !== 'Diferencias de Inventario') return;
+
       const key = `${d.productCode}-${d.center}`;
       if (!technicalMap[key]) {
         technicalMap[key] = { ...d };
@@ -171,13 +173,30 @@ export function InventoryDashboard({ data }: DashboardProps) {
     };
   }, [data, centers, colFilterMaterial, colFilterDescription, colFilterCenter, matrixCenterFilter]);
 
+  const ColorfulCredit = () => {
+    const text = "Creado por jugonza@ccu.cl";
+    const colors = [
+      'text-red-500', 'text-orange-500', 'text-yellow-500', 'text-green-500', 
+      'text-blue-500', 'text-indigo-500', 'text-purple-500', 'text-pink-500'
+    ];
+    return (
+      <>
+        {text.split('').map((char, i) => (
+          <span key={i} className={char === ' ' ? '' : colors[i % colors.length]}>
+            {char}
+          </span>
+        ))}
+      </>
+    );
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap gap-3 justify-end print:hidden">
         <Button onClick={() => window.print()} variant="outline" className="border-primary text-primary">
           <FileText className="w-4 h-4 mr-2" /> Descargar PDF
         </Button>
-        <Button onClick={() => exportToExcel(summary.filteredTechnical, 'Reporte_Inventario')}>
+        <Button onClick={() => exportToExcel(summary.filteredTechnical, 'Reporte_Diferencias_Tecnicas')}>
           <Download className="w-4 h-4 mr-2" /> Exportar Excel
         </Button>
       </div>
@@ -447,11 +466,14 @@ export function InventoryDashboard({ data }: DashboardProps) {
       </Card>
 
       <footer className="text-center pt-20 pb-10 border-t space-y-2">
-        <p className="text-sm font-bold text-primary">Creado por: jugonza@ccu.cl</p>
+        <p className="text-sm font-bold">
+          <ColorfulCredit />
+        </p>
         <p className="text-[10px] text-muted-foreground uppercase tracking-widest opacity-50">
-          Analizador de Insights de Inventario • Gestión de Datos de Precisión SAP
+          Analizador de Insights de Inventario • Gestión de Datos de Precisión SAP/WMS
         </p>
       </footer>
     </div>
   );
 }
+// Build: v1.0.5 - SAP/WMS
