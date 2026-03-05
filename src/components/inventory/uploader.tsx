@@ -39,7 +39,7 @@ export function InventoryUploader({ onDataReady }: UploaderProps) {
           </div>
           <div className="text-center">
             <h3 className="font-headline font-semibold text-lg">Archivo MB51</h3>
-            <p className="text-sm text-muted-foreground">Debe incluir 'Material' e 'Impte.mon.local'</p>
+            <p className="text-sm text-muted-foreground">Debe incluir 'Material' y 'Fecha contabiliz.'</p>
           </div>
           <input
             type="file"
