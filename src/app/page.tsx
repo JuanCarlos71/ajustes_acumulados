@@ -95,4 +95,3 @@ export default function InventoryInsightsPage() {
     </main>
   );
 }
-// Build: v1.0.4 - SAP/WMS
