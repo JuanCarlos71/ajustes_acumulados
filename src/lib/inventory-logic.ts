@@ -1,4 +1,3 @@
-
 import * as XLSX from 'xlsx';
 
 export type MovementCategory = 'Diferencias de Inventario' | 'Mermas' | 'Vencimientos' | 'Otros';
@@ -9,6 +8,7 @@ export interface AnalysisResult {
   movementType: string;
   category: MovementCategory;
   center: string;
+  storageLocation: string; // Campo LGORT
   quantity: number;
   localAmount: number;
   factor: number;      
@@ -70,10 +70,11 @@ export function performAnalysis(
   const factorMap = new Map<string, number>();
   if (Array.isArray(valuations)) {
     valuations.forEach((v) => {
-      const code = getVal(v, ['productCode', 'Material', 'Código', 'codigo', 'ProductCode']);
+      const codeRaw = getVal(v, ['productCode', 'Material', 'Código', 'codigo', 'ProductCode']);
+      const code = String(codeRaw || '').replace(/^0+/, '').trim(); // Normalizar material
       const factor = getVal(v, ['factor', 'Factor', 'Valuation Factor', 'Unit Value', 'Valor Unitario']);
-      if (code !== undefined && factor !== undefined) {
-        factorMap.set(String(code).trim(), Number(factor) || 0);
+      if (code !== '' && factor !== undefined) {
+        factorMap.set(code, Number(factor) || 0);
       }
     });
   }
@@ -81,13 +82,15 @@ export function performAnalysis(
   const results: AnalysisResult[] = [];
 
   movements.forEach((m) => {
-    const code = String(getVal(m, ['productCode', 'Material', 'Código', 'codigo', 'ProductCode']) || '').trim();
+    const codeRaw = getVal(m, ['productCode', 'Material', 'Código', 'codigo', 'ProductCode']);
+    const code = String(codeRaw || '').replace(/^0+/, '').trim();
     if (!code) return;
 
     const description = String(getVal(m, ['Texto breve material', 'Description', 'Material Description', 'Texto breve']) || 'Sin descripción');
     const type = String(getVal(m, ['movementType', 'Clase de mov.', 'Tipo Movimiento', 'MovementType', 'Clase de movimiento']) || 'N/A');
     const category = getCategory(type);
     const center = String(getVal(m, ['center', 'Centro', 'centro', 'Center']) || 'Unknown');
+    const lgort = String(getVal(m, ['Almacén', 'storageLocation', 'Storage Location', 'LgOrt', 'LGORT']) || 'N/A').trim();
     const qty = Number(getVal(m, ['Ctd.en UM entrada', 'quantity', 'Cantidad', 'cantidad', 'Quantity']) || 0);
     const localAmount = Number(getVal(m, ['localAmount', 'Impte.mon.local', 'Importe', 'Amount']) || 0);
     const factor = factorMap.get(code) || 0;
@@ -113,6 +116,7 @@ export function performAnalysis(
       }
     }
 
+    // Impacto financiero = Valor en moneda local * Factor de valoración
     const safeLocalAmount = isNaN(localAmount) ? 0 : localAmount;
     const safeFactor = isNaN(factor) ? 0 : factor;
     const impact = safeLocalAmount * safeFactor;
@@ -123,6 +127,7 @@ export function performAnalysis(
       movementType: type,
       category,
       center,
+      storageLocation: lgort,
       quantity: isNaN(qty) ? 0 : qty,
       localAmount: safeLocalAmount,
       factor: safeFactor,
