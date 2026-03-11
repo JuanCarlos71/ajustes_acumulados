@@ -3,11 +3,11 @@
 import React, { useMemo, useState } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  Legend, PieChart, Pie, Cell
+  Legend, PieChart, Pie, Cell, LabelList
 } from 'recharts';
 import { 
   Download, BarChart3, FileText, CalendarRange, 
-  AlertCircle, Layers, Package, Calendar
+  AlertCircle, Layers, Package, Calendar, Table as TableIcon
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,29 @@ const formatCurrency = (val: number) => {
   const absVal = Math.round(Math.abs(val));
   const formatted = absVal.toLocaleString('es-CL');
   return `${isNeg ? '$-' : '$'}${formatted}`;
+};
+
+// Renderizadores de etiquetas personalizadas para gráficos
+const renderCustomBarLabel = (props: any) => {
+  const { x, y, width, value } = props;
+  if (value === 0) return null;
+  return (
+    <text 
+      x={x + width / 2} 
+      y={y - 10} 
+      fill="currentColor" 
+      textAnchor="middle" 
+      fontSize={10} 
+      fontWeight="bold"
+      className="fill-muted-foreground"
+    >
+      {Math.abs(value) > 1000000 ? `$${(value/1e6).toFixed(1)}M` : formatCurrency(value)}
+    </text>
+  );
+};
+
+const renderPieLabel = ({ name, percent }: any) => {
+  return `${name} ${(percent * 100).toFixed(0)}%`;
 };
 
 export function InventoryDashboard({ data }: DashboardProps) {
@@ -94,6 +117,20 @@ export function InventoryDashboard({ data }: DashboardProps) {
       return impactB - impactA;
     });
 
+    // MATRIZ LGORT vs CENTRO (Solo Técnicos Z59-Z66)
+    const technicalData = data.filter(d => d.category === 'Diferencias de Inventario');
+    const lgortsFound = Array.from(new Set(technicalData.map(d => d.storageLocation))).filter(l => l && l !== 'N/A').sort();
+    
+    const lgortMatrix: Record<string, Record<string, number>> = {};
+    lgortsFound.forEach(lgort => {
+      lgortMatrix[lgort] = {};
+      centers.forEach(center => {
+        lgortMatrix[lgort][center] = technicalData
+          .filter(d => d.storageLocation === lgort && d.center === center)
+          .reduce((acc, curr) => acc + curr.calculatedImpact, 0);
+      });
+    });
+
     const matrixRowsFiltered = data.filter(d => {
       const isDiff = d.category === 'Diferencias de Inventario';
       const matchCenter = matrixCenterFilter === 'all' || d.center === matrixCenterFilter;
@@ -120,15 +157,11 @@ export function InventoryDashboard({ data }: DashboardProps) {
       materialQtyMap[d.productCode] += d.quantity;
     });
 
-    const topPositive = Object.entries(materialNetImpactMap)
-      .filter(([_, impact]) => impact > 0)
-      .sort((a, b) => b[1] - a[1]).slice(0, 5).map(([code]) => code);
+    const topCodes = Object.entries(materialNetImpactMap)
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+      .slice(0, 15)
+      .map(([code]) => code);
 
-    const topNegative = Object.entries(materialNetImpactMap)
-      .filter(([_, impact]) => impact < 0)
-      .sort((a, b) => a[1] - b[1]).slice(0, 5).map(([code]) => code);
-
-    const topCodes = [...topPositive, ...topNegative];
     const matrixRows = topCodes.map(code => ({
       code,
       description: materialsInfo[code],
@@ -137,22 +170,7 @@ export function InventoryDashboard({ data }: DashboardProps) {
       netImpact: materialNetImpactMap[code] || 0
     }));
 
-    // TABLE FILTER: Only Diferencias de Inventario (Z59, Z60, Z65, Z66)
-    const technicalMap: Record<string, AnalysisResult> = {};
-    data.forEach(d => {
-      if (d.category !== 'Diferencias de Inventario') return;
-
-      const key = `${d.productCode}-${d.center}`;
-      if (!technicalMap[key]) {
-        technicalMap[key] = { ...d };
-      } else {
-        technicalMap[key].quantity += d.quantity;
-        technicalMap[key].calculatedImpact += d.calculatedImpact;
-        technicalMap[key].localAmount += d.localAmount;
-      }
-    });
-
-    const filteredTechnical = Object.values(technicalMap)
+    const filteredTechnical = technicalData
       .filter(d => {
         const matchMaterial = (d.productCode || '').toLowerCase().includes(colFilterMaterial.toLowerCase());
         const matchDescription = (d.productDescription || '').toLowerCase().includes(colFilterDescription.toLowerCase());
@@ -167,6 +185,8 @@ export function InventoryDashboard({ data }: DashboardProps) {
       mermas,
       vencimientos,
       stackedData,
+      lgortMatrix,
+      lgortsFound,
       matrixRows,
       sortedDays: Array.from(daysFound).sort((a, b) => a - b),
       filteredTechnical
@@ -235,19 +255,71 @@ export function InventoryDashboard({ data }: DashboardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[350px] w-full">
+          <div className="h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={summary.stackedData} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
+              <BarChart data={summary.stackedData} margin={{ top: 30, right: 30, left: 20, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                 <XAxis dataKey="center" fontSize={11} />
                 <YAxis fontSize={11} tickFormatter={(v) => `$${(v/1e6).toFixed(0)}M`} />
                 <Tooltip formatter={(v: number) => formatCurrency(v)} />
                 <Legend verticalAlign="top" iconType="rect" />
-                <Bar dataKey="Mermas" stackId="a" fill={CATEGORY_COLORS['Mermas']} />
+                <Bar dataKey="Mermas" stackId="a" fill={CATEGORY_COLORS['Mermas']}>
+                  <LabelList content={renderCustomBarLabel} />
+                </Bar>
                 <Bar dataKey="Diferencias de Inventario" stackId="a" fill={CATEGORY_COLORS['Diferencias de Inventario']} />
                 <Bar dataKey="Vencimientos" stackId="a" fill={CATEGORY_COLORS['Vencimientos']} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-teal-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2 text-primary">
+            <TableIcon className="w-5 h-5" /> Matriz de Ajustes: Centro vs Almacén (LGORT) - Z59/Z60/Z65/Z66
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/30">
+                <TableRow>
+                  <TableHead className="text-[10px] font-bold py-3 uppercase">LGORT / Centro</TableHead>
+                  {centers.map(center => (
+                    <TableHead key={center} className="text-right text-[10px] font-bold min-w-[120px] uppercase border-l">{center}</TableHead>
+                  ))}
+                  <TableHead className="text-right text-[10px] font-bold bg-muted border-l min-w-[120px]">TOTAL LGORT</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {summary.lgortsFound.map(lgort => {
+                  const rowTotal = centers.reduce((acc, center) => acc + (summary.lgortMatrix[lgort][center] || 0), 0);
+                  return (
+                    <TableRow key={lgort} className="text-xs">
+                      <TableCell className="font-bold py-3 bg-muted/5">{lgort}</TableCell>
+                      {centers.map(center => {
+                        const val = summary.lgortMatrix[lgort][center] || 0;
+                        return (
+                          <TableCell key={center} className={cn(
+                            "text-right py-3 border-l font-mono font-medium",
+                            val < 0 ? 'text-red-500' : val > 0 ? 'text-teal-600' : 'text-muted-foreground/30'
+                          )}>
+                            {val === 0 ? '-' : formatCurrency(val)}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className={cn(
+                        "text-right py-3 border-l font-bold font-mono bg-muted/10",
+                        rowTotal < 0 ? 'text-red-500' : rowTotal > 0 ? 'text-teal-600' : ''
+                      )}>
+                        {formatCurrency(rowTotal)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
@@ -279,10 +351,16 @@ export function InventoryDashboard({ data }: DashboardProps) {
                 </TableBody>
               </Table>
             </div>
-            <div className="h-[250px]">
+            <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={summary.differences.pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value">
+                  <Pie 
+                    data={summary.differences.pieData} 
+                    cx="50%" cy="50%" 
+                    innerRadius={60} outerRadius={85} 
+                    paddingAngle={4} dataKey="value"
+                    label={renderPieLabel}
+                  >
                     {summary.differences.pieData.map((e, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(v: number) => formatCurrency(v)} />
@@ -318,10 +396,16 @@ export function InventoryDashboard({ data }: DashboardProps) {
                 </TableBody>
               </Table>
             </div>
-            <div className="h-[250px]">
+            <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={summary.mermas.pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value">
+                  <Pie 
+                    data={summary.mermas.pieData} 
+                    cx="50%" cy="50%" 
+                    innerRadius={60} outerRadius={85} 
+                    paddingAngle={4} dataKey="value"
+                    label={renderPieLabel}
+                  >
                     {summary.mermas.pieData.map((e, i) => <Cell key={i} fill={CHART_COLORS[(i + 2) % CHART_COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(v: number) => formatCurrency(v)} />
@@ -357,10 +441,16 @@ export function InventoryDashboard({ data }: DashboardProps) {
                 </TableBody>
               </Table>
             </div>
-            <div className="h-[250px]">
+            <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={summary.vencimientos.pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value">
+                  <Pie 
+                    data={summary.vencimientos.pieData} 
+                    cx="50%" cy="50%" 
+                    innerRadius={60} outerRadius={85} 
+                    paddingAngle={4} dataKey="value"
+                    label={renderPieLabel}
+                  >
                     {summary.vencimientos.pieData.map((e, i) => <Cell key={i} fill={CHART_COLORS[(i + 4) % CHART_COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(v: number) => formatCurrency(v)} />
@@ -374,7 +464,7 @@ export function InventoryDashboard({ data }: DashboardProps) {
       <Card className="border-teal-200 shadow-sm">
         <CardHeader className="flex flex-col md:flex-row items-center justify-between gap-4">
           <CardTitle className="text-lg flex items-center gap-2 text-primary">
-            <CalendarRange className="w-5 h-5" /> Matriz de ajustes diarios (Z59-Z60-Z65-Z66)
+            <CalendarRange className="w-5 h-5" /> Detalle ajustes diarios por Material (Top Impacto)
           </CardTitle>
           <Select value={matrixCenterFilter} onValueChange={setMatrixCenterFilter}>
             <SelectTrigger className="w-[180px] h-9 text-xs">
@@ -391,7 +481,7 @@ export function InventoryDashboard({ data }: DashboardProps) {
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead className="text-[10px] font-bold py-3 uppercase">Material</TableHead>
+                  <TableHead className="text-[10px] font-bold py-3 uppercase">Material / Texto</TableHead>
                   {summary.sortedDays.map(day => (
                     <TableHead key={day} className="text-[10px] font-bold text-center border-l">{day}</TableHead>
                   ))}
@@ -476,4 +566,3 @@ export function InventoryDashboard({ data }: DashboardProps) {
     </div>
   );
 }
-// Build: v1.0.5 - SAP/WMS
