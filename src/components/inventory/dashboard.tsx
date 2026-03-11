@@ -35,6 +35,9 @@ const CATEGORY_COLORS = {
 
 const CHART_COLORS = ['#008080', '#E11D48', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899', '#10B981', '#F43F5E'];
 
+const TARGET_CENTERS = ['8014', '9014', '7117', '5014', '2314'];
+const TARGET_LGORTS = ['PT01', 'PT02', 'PT03', 'PT04', 'PT05', 'PT06', 'PT07', 'PT09', 'PT11'];
+
 const formatCurrency = (val: number) => {
   const isNeg = val < 0;
   const absVal = Math.round(Math.abs(val));
@@ -42,7 +45,6 @@ const formatCurrency = (val: number) => {
   return `${isNeg ? '$-' : '$'}${formatted}`;
 };
 
-// Renderizadores de etiquetas personalizadas para gráficos
 const renderCustomBarLabel = (props: any) => {
   const { x, y, width, value } = props;
   if (value === 0) return null;
@@ -71,9 +73,9 @@ export function InventoryDashboard({ data }: DashboardProps) {
   const [colFilterCenter, setColFilterCenter] = useState('');
   const [matrixCenterFilter, setMatrixCenterFilter] = useState<string>('all');
 
-  const centers = useMemo(() => 
+  const centersFound = useMemo(() => 
     Array.from(new Set(data.map(d => d.center)))
-      .filter(c => c && typeof c === 'string' && c.trim() !== '' && c !== 'Unknown')
+      .filter(c => c && c !== 'Unknown')
       .sort(), 
   [data]);
 
@@ -103,7 +105,8 @@ export function InventoryDashboard({ data }: DashboardProps) {
 
     const totalImpact = differences.total + mermas.total + vencimientos.total;
 
-    const stackedData = centers.map(center => {
+    // Datos para gráfico de barras apiladas por Centro
+    const stackedData = centersFound.map(center => {
       const centerMovements = data.filter(d => d.center === center);
       return {
         center,
@@ -117,20 +120,20 @@ export function InventoryDashboard({ data }: DashboardProps) {
       return impactB - impactA;
     });
 
-    // MATRIZ LGORT vs CENTRO (Solo Técnicos Z59-Z66)
+    // MATRIZ TÉCNICA (LGORT vs CENTRO) - Solo Z59, Z60, Z65, Z66
     const technicalData = data.filter(d => d.category === 'Diferencias de Inventario');
-    const lgortsFound = Array.from(new Set(technicalData.map(d => d.storageLocation))).filter(l => l && l !== 'N/A').sort();
     
     const lgortMatrix: Record<string, Record<string, number>> = {};
-    lgortsFound.forEach(lgort => {
+    TARGET_LGORTS.forEach(lgort => {
       lgortMatrix[lgort] = {};
-      centers.forEach(center => {
+      TARGET_CENTERS.forEach(center => {
         lgortMatrix[lgort][center] = technicalData
           .filter(d => d.storageLocation === lgort && d.center === center)
           .reduce((acc, curr) => acc + curr.calculatedImpact, 0);
       });
     });
 
+    // Detalle diario por Material
     const matrixRowsFiltered = data.filter(d => {
       const isDiff = d.category === 'Diferencias de Inventario';
       const matchCenter = matrixCenterFilter === 'all' || d.center === matrixCenterFilter;
@@ -186,12 +189,11 @@ export function InventoryDashboard({ data }: DashboardProps) {
       vencimientos,
       stackedData,
       lgortMatrix,
-      lgortsFound,
       matrixRows,
       sortedDays: Array.from(daysFound).sort((a, b) => a - b),
       filteredTechnical
     };
-  }, [data, centers, colFilterMaterial, colFilterDescription, colFilterCenter, matrixCenterFilter]);
+  }, [data, centersFound, colFilterMaterial, colFilterDescription, colFilterCenter, matrixCenterFilter]);
 
   const ColorfulCredit = () => {
     const text = "Creado por jugonza@ccu.cl";
@@ -286,19 +288,19 @@ export function InventoryDashboard({ data }: DashboardProps) {
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="text-[10px] font-bold py-3 uppercase">LGORT / Centro</TableHead>
-                  {centers.map(center => (
+                  {TARGET_CENTERS.map(center => (
                     <TableHead key={center} className="text-right text-[10px] font-bold min-w-[120px] uppercase border-l">{center}</TableHead>
                   ))}
                   <TableHead className="text-right text-[10px] font-bold bg-muted border-l min-w-[120px]">TOTAL LGORT</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {summary.lgortsFound.map(lgort => {
-                  const rowTotal = centers.reduce((acc, center) => acc + (summary.lgortMatrix[lgort][center] || 0), 0);
+                {TARGET_LGORTS.map(lgort => {
+                  const rowTotal = TARGET_CENTERS.reduce((acc, center) => acc + (summary.lgortMatrix[lgort][center] || 0), 0);
                   return (
                     <TableRow key={lgort} className="text-xs">
                       <TableCell className="font-bold py-3 bg-muted/5">{lgort}</TableCell>
-                      {centers.map(center => {
+                      {TARGET_CENTERS.map(center => {
                         const val = summary.lgortMatrix[lgort][center] || 0;
                         return (
                           <TableCell key={center} className={cn(
@@ -472,7 +474,7 @@ export function InventoryDashboard({ data }: DashboardProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los Centros</SelectItem>
-              {centers.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              {centersFound.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
         </CardHeader>
